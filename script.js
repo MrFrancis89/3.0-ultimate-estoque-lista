@@ -99,6 +99,35 @@ function toggleSearch(event) {
 document.addEventListener('click', function(event) { const overlay = document.getElementById('search-overlay'); const btn = document.getElementById('assistive-touch'); if ((!overlay.contains(event.target) && !btn.contains(event.target)) && overlay.style.display === 'block') { toggleSearch(null); } });
 window.addEventListener('scroll', function() { var overlay = document.getElementById('search-overlay'); if (overlay.style.display === 'block') { overlay.style.top = (window.scrollY + 15) + 'px'; } });
 
+// --- V4.8: LÓGICA DE LONG PRESS NA LUPA ---
+let pressTimer;
+const btnLupa = document.getElementById('assistive-touch');
+
+btnLupa.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Previne conflitos nativos do Safari
+    pressTimer = setTimeout(() => {
+        pressTimer = null;
+        darFeedback();
+        const overlay = document.getElementById('search-overlay');
+        if (overlay.style.display !== 'block') {
+            toggleSearch(null); // Abre a barra se estiver fechada
+        }
+        if (!isRecording) {
+            toggleMic('busca', null); // Aciona o microfone imediatamente
+        }
+    }, 600); // 600ms = Apertar e segurar
+}, {passive: false});
+
+btnLupa.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+        toggleSearch(null); // Se soltou antes dos 600ms, é um toque rápido normal
+    }
+});
+// ------------------------------------------
+
 let swipeStartX = 0, swipeStartY = 0, swipeCurrentX = 0;
 let isSwiping = false, swipedRow = null, justSwiped = false;
 
