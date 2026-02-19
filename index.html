@@ -3,23 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Estoque V4.7 Enterprise</title>
+    <title>Estoque V4.7 (Modular Limpo)</title>
     
     <link rel="icon" href="icone.png" type="image/png">
     <link rel="apple-touch-icon" href="icone.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
+    <meta name="apple-mobile-web-app-title" content="Estoque">
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div id="toast-container"></div>
-    
     <div id="modal-confirm" class="modal-overlay" style="display:none;">
         <div class="modal-box">
             <div id="modal-text">Mensagem</div>
             <div class="modal-buttons">
-                <button id="modal-btn-cancel" onclick="EstoqueApp.UI.fecharModal(); EstoqueApp.Helpers.vibrar()">Cancelar</button>
+                <button id="modal-btn-cancel" onclick="fecharModal(); darFeedback()">Cancelar</button>
                 <button id="modal-btn-confirm">Confirmar</button>
             </div>
         </div>
@@ -27,54 +28,85 @@
 
     <div id="modal-calc" class="modal-overlay" style="display:none;">
         <div class="calc-box">
-            <div class="calc-header"><span id="calc-title">🧮 Calculadora</span><button onclick="EstoqueApp.Calc.fechar()" class="calc-close">✖</button></div>
+            <div class="calc-header">
+                <span id="calc-title">🧮 Calculadora</span>
+                <button onclick="fecharCalculadora()" class="calc-close">✖</button>
+            </div>
             <div id="calc-display">0</div>
             <div class="calc-grid">
-                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('C')">C</button>
-                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('÷')">÷</button>
-                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('×')">×</button>
-                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('BACK')">⌫</button>
-                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('7')">7</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('8')">8</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('9')">9</button>
-                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('-')">-</button>
-                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('4')">4</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('5')">5</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('6')">6</button>
-                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('+')">+</button>
-                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('1')">1</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('2')">2</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('3')">3</button>
-                <button class="calc-btn calc-bg-confirm" style="grid-row: span 2;" onclick="EstoqueApp.Calc.salvar()">OK</button>
-                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('0')" style="grid-column: span 2;">0</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar(',')">,</button>
+                <button class="calc-btn calc-bg-op" onclick="calcDigito('C')">C</button>
+                <button class="calc-btn calc-bg-op" onclick="calcDigito('÷')">÷</button>
+                <button class="calc-btn calc-bg-op" onclick="calcDigito('×')">×</button>
+                <button class="calc-btn calc-bg-op" onclick="calcDigito('BACK')">⌫</button>
+                <button class="calc-btn" onclick="calcDigito('7')">7</button>
+                <button class="calc-btn" onclick="calcDigito('8')">8</button>
+                <button class="calc-btn" onclick="calcDigito('9')">9</button>
+                <button class="calc-btn calc-bg-op" onclick="calcDigito('-')">-</button>
+                <button class="calc-btn" onclick="calcDigito('4')">4</button>
+                <button class="calc-btn" onclick="calcDigito('5')">5</button>
+                <button class="calc-btn" onclick="calcDigito('6')">6</button>
+                <button class="calc-btn calc-bg-op" onclick="calcDigito('+')">+</button>
+                <button class="calc-btn" onclick="calcDigito('1')">1</button>
+                <button class="calc-btn" onclick="calcDigito('2')">2</button>
+                <button class="calc-btn" onclick="calcDigito('3')">3</button>
+                <button class="calc-btn calc-bg-confirm" style="grid-row: span 2;" onclick="calcSalvar()">OK</button>
+                <button class="calc-btn" onclick="calcDigito('0')" style="grid-column: span 2;">0</button>
+                <button class="calc-btn" onclick="calcDigito(',')">,</button>
             </div>
         </div>
     </div>
 
-    <div id="assistive-touch" onclick="EstoqueApp.UI.toggleBusca(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
-    
+    <div id="assistive-touch" onclick="toggleSearch(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+    </div>
+
     <div id="search-overlay">
         <div class="search-inner">
             <div style="position: relative; flex: 1;">
-                <input type="text" id="filtroBusca" placeholder="🔍 Buscar..." oninput="EstoqueApp.Inventory.filtrar()">
-                <button class="btn-mic" onclick="EstoqueApp.Voice.toggle('busca', event)" id="btn-mic-busca">🎤</button>
-                <span class="btn-limpar" onclick="EstoqueApp.Helpers.limparCampo('filtroBusca')">✖</span>
+                <input type="text" id="filtroBusca" placeholder="🔍 Buscar..." oninput="filtrarGeral()" style="padding-right: 55px;">
+                <button class="btn-mic" onclick="toggleMic('busca', event)" id="btn-mic-busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </button>
+                <span class="btn-limpar" onclick="limparCampo('filtroBusca')">✖</span>
             </div>
-            <select id="filtroSelect" onchange="EstoqueApp.Inventory.filtrar()"><option value="">📂 ITENS</option></select>
+            <select id="filtroSelect" style="max-width: 100px;" onchange="filtrarGeral()">
+                <option value="">📂 ITENS</option>
+            </select>
         </div>
     </div>
 
     <div class="header-container">
         <h1 id="titulo-pagina">ESTOQUE & CATEGORIAS</h1>
-        <button class="btn-theme" onclick="EstoqueApp.UI.alternarTema()">🌓</button>
+        <button class="btn-theme" onclick="alternarTema()">🌓</button>
     </div>
 
     <div class="card">
         <div class="input-group">
             <div style="position: relative;">
                 <label>Produto</label>
-                <input type="text" id="novoProduto" placeholder="Item" oninput="EstoqueApp.Inventory.autoPreencher()">
-                <button class="btn-mic" onclick="EstoqueApp.Voice.toggle('produto', event)" id="btn-mic-prod">🎤</button>
-                <span class="btn-limpar" onclick="EstoqueApp.Helpers.limparCampo('novoProduto')">✖</span>
+                <input type="text" id="novoProduto" placeholder="Item" oninput="autoPreencherUnidade()" style="padding-right: 55px;">
+                <button class="btn-mic" onclick="toggleMic('produto', event)" id="btn-mic-prod">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </button>
+                <span class="btn-limpar" onclick="limparCampo('novoProduto')">✖</span>
             </div>
             <div style="position: relative;">
                 <label>Qtd</label>
-                <input type="text" id="novoQtd" placeholder="Qtd" onclick="EstoqueApp.Calc.abrir(this)" readonly>
-                <span class="btn-limpar" onclick="EstoqueApp.Helpers.limparCampo('novoQtd')">✖</span>
+                <input type="text" id="novoQtd" placeholder="Qtd" onclick="abrirCalculadora(this)" readonly style="padding-right: 25px; cursor: pointer;">
+                <span class="btn-limpar" onclick="limparCampo('novoQtd')">✖</span>
             </div>
             <div>
                 <label>Unid</label>
@@ -83,52 +115,59 @@
                     <option value="pct">pct</option><option value="cx">cx</option><option value="bld">bld</option><option value="crt">crt</option>
                 </select>
             </div>
+            
             <div class="action-group">
-                <button id="add-btn" class="btn-half" onclick="EstoqueApp.Inventory.adicionar(false)">Adicionar</button>
-                <button id="add-star-btn" class="btn-half" onclick="EstoqueApp.Inventory.adicionar(true)">⭐ Fixar</button>
-                <button id="remove-star-btn" class="btn-half" onclick="EstoqueApp.Inventory.removerDoPadrao()">🗑️ Padrão</button>
+                <button id="add-btn" class="btn-half" onclick="adicionarManual(false)">Adicionar</button>
+                <button id="add-star-btn" class="btn-half" onclick="adicionarManual(true)">⭐ Fixar</button>
+                <button id="remove-star-btn" class="btn-half" onclick="removerDoPadrao()">🗑️ Padrão</button>
             </div>
         </div>
         <div id="status-save">Salvo.</div>
     </div>
 
-    <button id="btn-toggle-lista" onclick="EstoqueApp.UI.alternarTabela()">🔽 Ocultar Lista</button>
+    <button id="btn-toggle-lista" onclick="alternarLista()">🔽 Ocultar Lista de Estoque</button>
 
     <div class="table-wrapper">
         <div id="swipe-bg">Apagar</div>
         <table id="tabela-estoque">
-            <thead><tr><th class="col-check"><input type="checkbox" id="check-todos" onchange="EstoqueApp.Inventory.alternarTodos(this)"></th><th class="col-desc">Descrição</th><th class="col-qtd">Qtd</th><th class="col-unid">Unid</th></tr></thead>
+            <thead>
+                <tr>
+                    <th class="col-check"><input type="checkbox" id="check-todos" onchange="alternarTodos(this)"></th>
+                    <th class="col-desc">Descrição</th>
+                    <th class="col-qtd">Qtd</th>
+                    <th class="col-unid">Unid</th>
+                </tr>
+            </thead>
             <tbody id="lista-itens-container"></tbody>
         </table>
     </div>
 
-    <div class="share-group">
-        <button class="btn-zap" onclick="EstoqueApp.Export.zapEstoque()">Enviar Estoque</button>
-        <button class="btn-zap" onclick="EstoqueApp.Export.copiarEstoque()">Copiar Estoque</button>
+    <div class="share-group" style="margin-bottom: 20px;">
+        <button class="btn-zap" onclick="darFeedback(); compartilharEstoque()">Enviar Estoque</button>
+        <button id="btn-copiar" class="btn-zap" onclick="copiarEstoque()">Copiar Estoque</button>
     </div>
 
     <div id="area-compras">
         <h2 id="titulo-compras">LISTA DE COMPRAS</h2>
         <ul id="lista-compras-visual"></ul>
         <div class="share-group">
-            <button class="btn-compra" onclick="EstoqueApp.Export.zapCompras()">WhatsApp Compras</button>
-            <button class="btn-compra" onclick="EstoqueApp.Export.copiarCompras()">Copiar Compras</button>
+            <button class="btn-compra" onclick="darFeedback(); compartilharComprasZap()">WhatsApp Compras</button>
+            <button class="btn-compra" onclick="copiarCompras()">Copiar Compras</button>
         </div>
     </div>
 
-    <button id="btn-novo-dia" onclick="EstoqueApp.Inventory.novoDia()">☀ INICIAR NOVO DIA</button>
-    <button id="btn-exportar" onclick="EstoqueApp.Storage.salvarNoCelular()">💾 SALVAR NO CELULAR</button>
-    <button id="btn-importar" onclick="document.getElementById('input-arquivo').click()">📂 CARREGAR LISTA</button>
-    <button id="btn-reset" onclick="EstoqueApp.Storage.resetarFabrica()">⚠ RESTAURAR LISTA PADRÃO</button>
-    
-    <input type="file" id="input-arquivo" accept=".json" style="display: none;" onchange="EstoqueApp.Storage.carregarDoCelular(event)">
+    <button id="btn-novo-dia" onclick="iniciarNovoDia()">☀ INICIAR NOVO DIA (ZERAR QTD)</button>
+    <button id="btn-exportar" onclick="salvarListaNoCelular()">💾 SALVAR LISTA NO CELULAR</button>
+    <button id="btn-importar" onclick="darFeedback(); document.getElementById('input-arquivo').click()">📂 CARREGAR LISTA DO CELULAR</button>
+    <button id="btn-reset" onclick="resetarTudo()">⚠ RESTAURAR LISTA PADRÃO</button>
+    <input type="file" id="input-arquivo" accept=".json" style="display: none;" onchange="carregarListaDoCelular(event)">
 
     <div class="nav-float">
-        <button class="btn-nav" onclick="window.scrollTo(0,0)">▲</button>
-        <button class="btn-nav" onclick="window.scrollTo(0, document.body.scrollHeight)">▼</button>
+        <button class="btn-nav" onclick="darFeedback(); window.scrollTo(0,0)">▲</button>
+        <button class="btn-nav" onclick="darFeedback(); window.scrollTo(0, document.body.scrollHeight)">▼</button>
     </div>
 
-    <script src="produtos.js" defer></script>
-    <script src="script.js" defer></script>
+    <script src="produtos.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
