@@ -1,0 +1,90 @@
+:root {
+    --bg: #121212; --card: #1E1E1E; --text: #E0E0E0; --border: #444444; 
+    --accent: #888888; --highlight: #2C2C2C; --edit-bg: #2A2A20;
+    --shop-bg: #2C1A1A; --borda-caixas: #555555; 
+    --btn-add: #E0E0E0; --btn-add-text: #121212; --btn-star: #F59E0B; --btn-star-text: #FFFFFF;
+    --btn-danger: #EF4444; --btn-green: #047857; 
+}
+body.light-mode {
+    --bg: #F0F2F5; --card: #FFFFFF; --text: #121212; --border: #D1D5DB;
+    --accent: #4B5563; --highlight: #E5E7EB; --edit-bg: #F9FAFB;
+    --shop-bg: #FCE7F3; --borda-caixas: #9CA3AF;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body { 
+    font-family: 'Inter', sans-serif; font-weight: 600; 
+    margin: 0; padding: 10px; background-color: var(--bg); color: var(--text); padding-bottom: 80px; 
+}
+
+/* OPACIDADE 80% */
+body::before {
+    content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background-image: url('fundo-pizza.jpg'); background-size: cover; background-position: center;
+    opacity: 0.8; z-index: -1; pointer-events: none;
+}
+
+.header-container { display: flex; justify-content: center; align-items: center; position: relative; margin: 10px 0; }
+h1 { color: #FFFFFF; margin: 0; font-weight: 800; font-size: 16px; text-transform: uppercase; }
+
+.card { background: var(--card); padding: 12px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 12px; }
+label { font-size: 9px; margin-bottom: 4px; display: block; color: var(--accent); text-transform: uppercase; }
+
+input[type="text"], select { padding: 8px 10px; background-color: var(--highlight); border: 1px solid var(--borda-caixas); border-radius: 6px; font-weight: 700; color: var(--text); font-size: 16px; width: 100%; outline: none; }
+button { border: none; font-weight: 800; border-radius: 6px; cursor: pointer; }
+
+.btn-limpar { position: absolute; right: 5px; bottom: 8px; color: var(--btn-danger); font-size: 16px; font-weight: 800; cursor: pointer; padding: 4px 8px; z-index: 10; }
+.btn-mic { position: absolute; right: 32px; bottom: 6px; background: none; color: var(--accent); font-size: 16px; padding: 5px; }
+.btn-mic.ouvindo { color: var(--btn-danger); transform: scale(1.2); }
+
+#assistive-touch { position: fixed; bottom: 120px; right: 15px; width: 50px; height: 50px; background: rgba(40, 40, 40, 0.95); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 200; border: 1px solid var(--border); color: #E0E0E0; }
+#search-overlay { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 94%; max-width: 400px; background: rgba(30, 30, 30, 0.98); border-radius: 14px; padding: 12px; display: none; z-index: 9999; }
+
+.table-wrapper { position: relative; overflow-x: hidden; border-radius: 10px; border: 1px solid var(--border); background: var(--card); margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+td { border-bottom: 1px solid var(--border); padding: 8px 6px; font-size: 13px; background-color: var(--card); }
+.categoria-header { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 8px 10px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.linha-marcada .nome-prod { color: var(--btn-danger); text-decoration: line-through; opacity: 0.8; }
+.input-qtd-tabela { background-color: var(--edit-bg); color: #FFFFB0; text-align: center; border-radius: 4px; width: 100%; border: 1px solid var(--borda-caixas); padding: 4px 2px; font-size: 16px; font-weight: bold; }
+
+/* CONTRASTE MÁXIMO BOTÃO RESET */
+#btn-reset { background-color: #000000 !important; color: #EF4444 !important; border: 2px solid #EF4444 !important; width: 100%; margin-top: 20px; font-size: 10px; padding: 15px; font-weight: 800; opacity: 1 !important; }
+
+.action-group { grid-column: span 3; display: flex; gap: 6px; margin-top: 4px; }
+.input-group { display: grid; grid-template-columns: 1.5fr 0.7fr 0.8fr; gap: 6px; align-items: end; }
+.btn-half { flex: 1; padding: 10px; font-size: 10px; text-transform: uppercase; }
+#add-btn { background-color: var(--btn-add); color: var(--btn-add-text); }
+#add-star-btn { background-color: var(--btn-star); color: var(--btn-star-text); }
+#remove-star-btn { background-color: var(--btn-danger); color: white; }
+.share-group { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
+.btn-zap { background-color: var(--highlight); color: var(--text); border: 1px solid var(--border); padding: 12px; font-size: 11px; }
+.btn-compra { background-color: var(--btn-danger); color: white; border: none; padding: 12px; font-size: 11px; }
+#btn-novo-dia { background-color: var(--btn-green); color: white; width: 100%; margin-top: 20px; padding: 15px; font-size: 12px; }
+#btn-exportar, #btn-importar { background-color: var(--accent); color: white; width: 100%; margin-top: 10px; padding: 15px; font-size: 12px; }
+#area-compras { margin-top: 30px; background-color: var(--shop-bg); border: 1px solid #442222; padding: 15px; border-radius: 10px; display: none; }
+#titulo-compras { margin: 0 0 10px 0; font-size: 14px; color: var(--btn-danger); text-transform: uppercase; border-bottom: 1px solid #553333; padding-bottom: 5px; }
+#lista-compras-visual { list-style: none; padding: 0; margin: 0 0 15px 0; }
+#lista-compras-visual li { padding: 4px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+#swipe-bg { position: absolute; right: 0; top: 0; background: var(--btn-danger); color: white; display: none; align-items: center; justify-content: center; width: 80px; z-index: 1; font-weight: bold; font-size: 12px; cursor: pointer; }
+#status-save { text-align: right; font-size: 8px; color: var(--btn-green); margin-top: 4px; opacity: 0; transition: opacity 0.3s; }
+.nav-float { position: fixed; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+.btn-nav { width: 38px; height: 38px; border-radius: 50%; background: var(--card); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 16px; }
+
+/* MODAIS E CALCULADORA */
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; z-index: 9999; font-size: 13px; font-weight: bold; border: 1px solid #555; }
+.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(2px); }
+.modal-box { background: var(--card); padding: 25px 20px; border-radius: 12px; width: 90%; max-width: 350px; text-align: center; border: 1px solid var(--border); }
+#modal-text { font-size: 15px; margin-bottom: 25px; line-height: 1.4; color: var(--text); }
+.modal-buttons { display: flex; gap: 10px; }
+.modal-buttons button { flex: 1; padding: 12px; font-size: 12px; }
+#modal-btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--accent); }
+#modal-btn-confirm { background-color: var(--btn-danger); color: white; border: none; }
+.calc-box { background: var(--card); padding: 20px; border-radius: 16px; width: 92%; max-width: 340px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 15px; }
+.calc-header { display: flex; justify-content: space-between; align-items: center; color: var(--accent); font-size: 12px; font-weight: bold; text-transform: uppercase; }
+.calc-close { background: transparent; color: var(--btn-danger); font-size: 20px; padding: 5px; }
+#calc-display { background: var(--edit-bg); color: #FFFFB0; font-size: 32px; text-align: right; padding: 15px; border-radius: 10px; border: 1px solid var(--borda-caixas); min-height: 65px; font-family: monospace; }
+.calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.calc-btn { background: var(--highlight); color: var(--text); border: 1px solid var(--border); border-radius: 10px; font-size: 22px; padding: 18px 0; font-weight: bold; }
+.calc-bg-op { background: var(--accent); color: var(--bg); font-size: 24px; }
+.calc-bg-confirm { background: var(--btn-green); color: white; border: none; font-size: 20px; }
