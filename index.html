@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Estoque V4.7 Enterprise</title>
+    
+    <link rel="icon" href="icone.png" type="image/png">
+    <link rel="apple-touch-icon" href="icone.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="toast-container"></div>
+    
+    <div id="modal-confirm" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div id="modal-text">Mensagem</div>
+            <div class="modal-buttons">
+                <button id="modal-btn-cancel" onclick="EstoqueApp.UI.fecharModal(); EstoqueApp.Helpers.vibrar()">Cancelar</button>
+                <button id="modal-btn-confirm">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-calc" class="modal-overlay" style="display:none;">
+        <div class="calc-box">
+            <div class="calc-header"><span id="calc-title">🧮 Calculadora</span><button onclick="EstoqueApp.Calc.fechar()" class="calc-close">✖</button></div>
+            <div id="calc-display">0</div>
+            <div class="calc-grid">
+                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('C')">C</button>
+                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('÷')">÷</button>
+                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('×')">×</button>
+                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('BACK')">⌫</button>
+                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('7')">7</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('8')">8</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('9')">9</button>
+                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('-')">-</button>
+                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('4')">4</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('5')">5</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('6')">6</button>
+                <button class="calc-btn calc-bg-op" onclick="EstoqueApp.Calc.digitar('+')">+</button>
+                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('1')">1</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('2')">2</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar('3')">3</button>
+                <button class="calc-btn calc-bg-confirm" style="grid-row: span 2;" onclick="EstoqueApp.Calc.salvar()">OK</button>
+                <button class="calc-btn" onclick="EstoqueApp.Calc.digitar('0')" style="grid-column: span 2;">0</button><button class="calc-btn" onclick="EstoqueApp.Calc.digitar(',')">,</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="assistive-touch" onclick="EstoqueApp.UI.toggleBusca(event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+    
+    <div id="search-overlay">
+        <div class="search-inner">
+            <div style="position: relative; flex: 1;">
+                <input type="text" id="filtroBusca" placeholder="🔍 Buscar..." oninput="EstoqueApp.Inventory.filtrar()">
+                <button class="btn-mic" onclick="EstoqueApp.Voice.toggle('busca', event)" id="btn-mic-busca">🎤</button>
+                <span class="btn-limpar" onclick="EstoqueApp.Helpers.limparCampo('filtroBusca')">✖</span>
+            </div>
+            <select id="filtroSelect" onchange="EstoqueApp.Inventory.filtrar()"><option value="">📂 ITENS</option></select>
+        </div>
+    </div>
+
+    <div class="header-container">
+        <h1 id="titulo-pagina">ESTOQUE & CATEGORIAS</h1>
+        <button class="btn-theme" onclick="EstoqueApp.UI.alternarTema()">🌓</button>
+    </div>
+
+    <div class="card">
+        <div class="input-group">
+            <div style="position: relative;">
+                <label>Produto</label>
+                <input type="text" id="novoProduto" placeholder="Item" oninput="EstoqueApp.Inventory.autoPreencher()">
+                <button class="btn-mic" onclick="EstoqueApp.Voice.toggle('produto', event)" id="btn-mic-prod">🎤</button>
+                <span class="btn-limpar" onclick="EstoqueApp.Helpers.limparCampo('novoProduto')">✖</span>
+            </div>
+            <div style="position: relative;">
+                <label>Qtd</label>
+                <input type="text" id="novoQtd" placeholder="Qtd" onclick="EstoqueApp.Calc.abrir(this)" readonly>
+                <span class="btn-limpar" onclick="EstoqueApp.Helpers.limparCampo('novoQtd')">✖</span>
+            </div>
+            <div>
+                <label>Unid</label>
+                <select id="novoUnidade">
+                    <option value="kg">kg</option><option value="g">g</option><option value="uni">uni</option>
+                    <option value="pct">pct</option><option value="cx">cx</option><option value="bld">bld</option><option value="crt">crt</option>
+                </select>
+            </div>
+            <div class="action-group">
+                <button id="add-btn" class="btn-half" onclick="EstoqueApp.Inventory.adicionar(false)">Adicionar</button>
+                <button id="add-star-btn" class="btn-half" onclick="EstoqueApp.Inventory.adicionar(true)">⭐ Fixar</button>
+                <button id="remove-star-btn" class="btn-half" onclick="EstoqueApp.Inventory.removerDoPadrao()">🗑️ Padrão</button>
+            </div>
+        </div>
+        <div id="status-save">Salvo.</div>
+    </div>
+
+    <button id="btn-toggle-lista" onclick="EstoqueApp.UI.alternarTabela()">🔽 Ocultar Lista</button>
+
+    <div class="table-wrapper">
+        <div id="swipe-bg">Apagar</div>
+        <table id="tabela-estoque">
+            <thead><tr><th class="col-check"><input type="checkbox" id="check-todos" onchange="EstoqueApp.Inventory.alternarTodos(this)"></th><th class="col-desc">Descrição</th><th class="col-qtd">Qtd</th><th class="col-unid">Unid</th></tr></thead>
+            <tbody id="lista-itens-container"></tbody>
+        </table>
+    </div>
+
+    <div class="share-group">
+        <button class="btn-zap" onclick="EstoqueApp.Export.zapEstoque()">Enviar Estoque</button>
+        <button class="btn-zap" onclick="EstoqueApp.Export.copiarEstoque()">Copiar Estoque</button>
+    </div>
+
+    <div id="area-compras">
+        <h2 id="titulo-compras">LISTA DE COMPRAS</h2>
+        <ul id="lista-compras-visual"></ul>
+        <div class="share-group">
+            <button class="btn-compra" onclick="EstoqueApp.Export.zapCompras()">WhatsApp Compras</button>
+            <button class="btn-compra" onclick="EstoqueApp.Export.copiarCompras()">Copiar Compras</button>
+        </div>
+    </div>
+
+    <button id="btn-novo-dia" onclick="EstoqueApp.Inventory.novoDia()">☀ INICIAR NOVO DIA</button>
+    <button id="btn-exportar" onclick="EstoqueApp.Storage.salvarNoCelular()">💾 SALVAR NO CELULAR</button>
+    <button id="btn-importar" onclick="document.getElementById('input-arquivo').click()">📂 CARREGAR LISTA</button>
+    <button id="btn-reset" onclick="EstoqueApp.Storage.resetarFabrica()">⚠ RESTAURAR LISTA PADRÃO</button>
+    
+    <input type="file" id="input-arquivo" accept=".json" style="display: none;" onchange="EstoqueApp.Storage.carregarDoCelular(event)">
+
+    <div class="nav-float">
+        <button class="btn-nav" onclick="window.scrollTo(0,0)">▲</button>
+        <button class="btn-nav" onclick="window.scrollTo(0, document.body.scrollHeight)">▼</button>
+    </div>
+
+    <script src="produtos.js" defer></script>
+    <script src="script.js" defer></script>
+</body>
+</html>
