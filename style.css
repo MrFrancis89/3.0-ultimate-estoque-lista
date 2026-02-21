@@ -1,326 +1,801 @@
-/* V5.2.2 PROFESSIONAL DARK - PALETA SÓBRIA */
-:root {
-    --bg: #121212; --card: #1E1E1E; --text: #E0E0E0; --border: #3A3A3A; 
-    --accent: #6B7280; 
-    --highlight: #27272a; --edit-bg: #222222;
-    --shop-bg: #262626; --borda-caixas: #444444; 
+// v5.2.2 - Swipe com dois botões: Apagar e Alerta (sino)
+let audioCtx = null;
+let inputCalculadoraAtual = null;
+let expressaoCalc = "";
+
+const mapaCategorias = {
+    'temperos': ['orégano', 'pimenta', 'canela', 'colorau', 'caldo', 'tempero', 'ervas', 'salsa', 'cebolinha', 'cominho', 'açafrão', 'páprica', 'curry'],
+    'limpeza': ['detergente', 'sabão', 'esponja', 'água sanitária', 'desinfetante', 'papel', 'saco', 'lixo', 'bucha', 'álcool', 'limpador', 'multiuso', 'pano', 'vassoura'],
+    'carnes': ['carne', 'frango', 'bacon', 'calabresa', 'presunto', 'peixe', 'hamburguer', 'linguiça', 'strogonoff', 'costela', 'bife'],
+    'laticinios': ['queijo', 'mussarela', 'cheddar', 'requeijão', 'catupiry', 'leite', 'manteiga', 'iogurte', 'creme de leite', 'parmesão', 'provolone', 'gorgonzola'],
+    'hortifruti': ['tomate', 'cebola', 'alho', 'batata', 'banana', 'limão', 'alface', 'rúcula', 'manjericão', 'pimentão', 'cenoura', 'azeitona', 'milho', 'ervilha', 'palmito', 'cogumelo', 'champignon', 'fruta', 'abacaxi', 'uva'],
+    'mercearia': ['arroz', 'feijão', 'trigo', 'farinha', 'açúcar', 'sal', 'macarrão', 'óleo', 'azeite', 'fermento', 'fubá', 'molho', 'extrato', 'passata', 'ketchup', 'maionese', 'mostarda', 'chocolate', 'café', 'pão'],
+    'bebidas': ['refrigerante', 'coca', 'guaraná', 'suco', 'água', 'cerveja', 'vinho', 'vodka', 'whisky', 'gelo', 'polpa'],
+    'embalagens': ['caixa', 'sacola', 'plástico', 'filme', 'alumínio', 'isopor', 'guardanapo', 'canudo', 'copo']
+};
+
+const coresCategorias = {
+    'carnes': 'var(--cat-carnes)', 'laticinios': 'var(--cat-laticinios)',
+    'hortifruti': 'var(--cat-horti)', 'mercearia': 'var(--cat-mercearia)',
+    'temperos': 'var(--cat-temperos)', 'limpeza': 'var(--cat-limpeza)',
+    'bebidas': 'var(--cat-bebidas)', 'embalagens': 'var(--cat-outros)',
+    'outros': 'var(--cat-outros)'
+};
+
+const nomesCategorias = {
+    'carnes': '🥩 CARNES & FRIOS', 'laticinios': '🧀 LATICÍNIOS',
+    'hortifruti': '🥦 HORTIFRUTI', 'mercearia': '🍝 MERCEARIA & GRÃOS',
+    'temperos': '🧂 TEMPEROS', 'limpeza': '🧽 LIMPEZA & DESCARTÁVEIS',
+    'bebidas': '🥤 BEBIDAS', 'embalagens': '📦 EMBALAGENS',
+    'outros': '📦 OUTROS'
+};
+
+function identificarCategoria(nomeItem) {
+    let nome = nomeItem.toLowerCase();
+    const prioridade = ['temperos', 'limpeza', 'bebidas', 'laticinios', 'hortifruti', 'mercearia', 'carnes', 'embalagens'];
+    for (let i = 0; i < prioridade.length; i++) {
+        let cat = prioridade[i];
+        if (mapaCategorias[cat] && mapaCategorias[cat].some(termo => nome.includes(termo))) { return cat; }
+    }
+    return 'outros';
+}
+
+function darFeedback() {
+    if (navigator.vibrate) { navigator.vibrate(15); } 
+    try {
+        if (!audioCtx) { const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtx = new AudioContext(); }
+        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.02);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02);
+        osc.connect(gain); gain.connect(audioCtx.destination); osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.03);
+    } catch (e) {}
+}
+
+let recognition = null;
+let isRecording = false;
+let activeField = null;
+
+function initSpeech() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = false; 
+        recognition.interimResults = true; 
+        recognition.onstart = function() {
+            isRecording = true;
+            if (activeField === 'produto') { document.getElementById('btn-mic-prod').classList.add('ouvindo'); document.getElementById('novoProduto').placeholder = "Ouvindo..."; } 
+            else if (activeField === 'busca') { document.getElementById('btn-mic-busca').classList.add('ouvindo'); document.getElementById('filtroBusca').placeholder = "Ouvindo..."; }
+        };
+        recognition.onend = function() {
+            isRecording = false;
+            document.getElementById('btn-mic-prod').classList.remove('ouvindo');
+            document.getElementById('btn-mic-busca').classList.remove('ouvindo');
+            document.getElementById('novoProduto').placeholder = "Item";
+            document.getElementById('filtroBusca').placeholder = "🔍 Buscar...";
+            if(activeField === 'produto') autoPreencherUnidade(); 
+            activeField = null;
+        };
+        recognition.onerror = function(event) {
+            isRecording = false;
+            document.getElementById('btn-mic-prod').classList.remove('ouvindo');
+            document.getElementById('btn-mic-busca').classList.remove('ouvindo');
+            document.getElementById('novoProduto').placeholder = "Item";
+            document.getElementById('filtroBusca').placeholder = "🔍 Buscar...";
+            activeField = null;
+        };
+        recognition.onresult = function(event) {
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) { transcript += event.results[i][0].transcript; }
+            let textoFinal = transcript.replace(/\.$/, '');
+            if (activeField === 'produto') { document.getElementById('novoProduto').value = textoFinal; } 
+            else if (activeField === 'busca') { document.getElementById('filtroBusca').value = textoFinal; filtrarGeral(); }
+        };
+    }
+}
+
+function toggleMic(campo, event) { 
+    if(event) event.stopPropagation(); 
+    darFeedback(); 
+    if (!recognition) { mostrarToast("Navegador sem suporte."); return; } 
+    if (isRecording) { recognition.stop(); } 
+    else { 
+        activeField = campo; 
+        try { recognition.start(); } catch (e) { recognition.stop(); isRecording = false; } 
+    } 
+}
+
+window.addEventListener('load', initSpeech);
+
+function toggleSearch(event) {
+    if (event) event.stopPropagation(); darFeedback();
+    const overlay = document.getElementById('search-overlay');
+    const btn = document.getElementById('assistive-touch');
+    if (overlay.style.display === 'block') {
+        overlay.style.display = 'none';
+    } else {
+        overlay.style.display = 'block';
+        overlay.style.top = (window.scrollY + 15) + 'px';
+        document.getElementById('filtroBusca').focus();
+    }
+}
+
+document.addEventListener('click', function(event) { const overlay = document.getElementById('search-overlay'); const btn = document.getElementById('assistive-touch'); if ((!overlay.contains(event.target) && !btn.contains(event.target)) && overlay.style.display === 'block') { toggleSearch(null); } });
+window.addEventListener('scroll', function() { var overlay = document.getElementById('search-overlay'); if (overlay.style.display === 'block') { overlay.style.top = (window.scrollY + 15) + 'px'; } });
+
+// ===== DRAGGABLE LUPA COM PERSISTÊNCIA =====
+let isDragging = false;
+let startX, startY, initialLeft, initialTop;
+const assistiveTouch = document.getElementById('assistive-touch');
+const storageKeyPos = 'lupaPosicao_v1';
+
+function carregarPosicaoLupa() {
+    const posSalva = localStorage.getItem(storageKeyPos);
+    if (posSalva) {
+        const pos = JSON.parse(posSalva);
+        assistiveTouch.style.left = pos.left;
+        assistiveTouch.style.top = pos.top;
+        assistiveTouch.style.bottom = 'auto';
+        assistiveTouch.style.right = 'auto';
+    } else {
+        assistiveTouch.style.bottom = '20px';
+        assistiveTouch.style.right = '15px';
+        assistiveTouch.style.top = 'auto';
+        assistiveTouch.style.left = 'auto';
+    }
+}
+
+assistiveTouch.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+
+    const computedStyle = window.getComputedStyle(assistiveTouch);
+    if (computedStyle.left !== 'auto' && computedStyle.left !== '0px') {
+        initialLeft = parseFloat(computedStyle.left);
+    } else {
+        const rect = assistiveTouch.getBoundingClientRect();
+        initialLeft = rect.left;
+    }
+    if (computedStyle.top !== 'auto' && computedStyle.top !== '0px') {
+        initialTop = parseFloat(computedStyle.top);
+    } else {
+        const rect = assistiveTouch.getBoundingClientRect();
+        initialTop = rect.top;
+    }
+
+    isDragging = false;
+}, { passive: false });
+
+assistiveTouch.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+
+    if (!isDragging && (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5)) {
+        isDragging = true;
+    }
+
+    if (isDragging) {
+        let newLeft = initialLeft + deltaX;
+        let newTop = initialTop + deltaY;
+
+        const lupaWidth = assistiveTouch.offsetWidth;
+        const lupaHeight = assistiveTouch.offsetHeight;
+        const maxLeft = window.innerWidth - lupaWidth;
+        const maxTop = window.innerHeight - lupaHeight;
+
+        newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+        newTop = Math.max(0, Math.min(newTop, maxTop));
+
+        assistiveTouch.style.left = newLeft + 'px';
+        assistiveTouch.style.top = newTop + 'px';
+        assistiveTouch.style.bottom = 'auto';
+        assistiveTouch.style.right = 'auto';
+    }
+}, { passive: false });
+
+assistiveTouch.addEventListener('touchend', (e) => {
+    if (isDragging) {
+        e.preventDefault();
+        const pos = {
+            left: assistiveTouch.style.left,
+            top: assistiveTouch.style.top
+        };
+        localStorage.setItem(storageKeyPos, JSON.stringify(pos));
+    }
+    isDragging = false;
+}, { passive: false });
+
+// ===== DOUBLE TAP NA LUPA =====
+let lastTap = 0;
+let tapTimeout;
+let isTouchEvent = false;
+
+assistiveTouch.addEventListener('touchstart', () => {
+    isTouchEvent = true;
+});
+
+assistiveTouch.addEventListener('touchend', (e) => {
+    if (isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        isTouchEvent = false;
+        return;
+    }
+
+    e.preventDefault();
+    const currentTime = new Date().getTime();
+    if (lastTap && (currentTime - lastTap) < 300) {
+        clearTimeout(tapTimeout);
+        if (document.getElementById('search-overlay').style.display !== 'block') {
+            toggleSearch(null);
+        }
+        setTimeout(() => {
+            toggleMic('busca', null);
+        }, 50);
+        lastTap = 0;
+    } else {
+        tapTimeout = setTimeout(() => {
+            toggleSearch(null);
+        }, 300);
+    }
+    lastTap = currentTime;
+});
+
+assistiveTouch.addEventListener('click', (e) => {
+    if (isTouchEvent || isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+        isTouchEvent = false;
+        return;
+    }
+    toggleSearch(e);
+});
+
+// ===== SWIPE COM DOIS BOTÕES =====
+let swipeStartX = 0, swipeStartY = 0, swipeCurrentX = 0;
+let isSwiping = false, swipedRow = null, justSwiped = false;
+const swipeActions = document.getElementById('swipe-actions');
+const swipeDeleteBtn = document.querySelector('.swipe-delete');
+const swipeAlertBtn = document.querySelector('.swipe-alert');
+
+function initSwipe() {
+    const container = document.getElementById("lista-itens-container");
+
+    function getClientX(e) { return e.touches ? e.touches[0].clientX : e.clientX; }
+    function getClientY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
+
+    container.addEventListener('touchstart', function(e) {
+        let tr = e.target.closest('tr');
+        if (!tr || tr.classList.contains('categoria-header-row')) return;
+        if (e.target.tagName === 'INPUT' && e.target.type === 'checkbox') return;
+
+        // Fecha qualquer outra linha aberta
+        if (swipedRow && swipedRow !== tr) closeSwipe(swipedRow);
+
+        swipeStartX = getClientX(e);
+        swipeStartY = getClientY(e);
+        isSwiping = false;
+        justSwiped = false;
+        swipeCurrentX = (swipedRow === tr) ? -160 : 0; // largura total dos botões (80+80)
+        tr.style.transition = 'none';
+    }, { passive: true });
+
+    container.addEventListener('touchmove', function(e) {
+        let tr = e.target.closest('tr');
+        if (!tr || tr.classList.contains('categoria-header-row')) return;
+
+        let deltaX = getClientX(e) - swipeStartX;
+        let deltaY = getClientY(e) - swipeStartY;
+
+        if (!isSwiping && Math.abs(deltaX) > 15 && Math.abs(deltaX) > Math.abs(deltaY)) {
+            isSwiping = true;
+        }
+
+        if (isSwiping) {
+            if (e.cancelable) e.preventDefault();
+            if (document.activeElement) document.activeElement.blur();
+            justSwiped = true;
+
+            // Move a linha
+            let moveX = swipeCurrentX + deltaX;
+            if (moveX > 0) moveX = 0;
+            if (moveX < -160) moveX = -160; // limite de dois botões
+            tr.style.transform = `translateX(${moveX}px)`;
+        }
+    }, { passive: false });
+
+    container.addEventListener('touchend', function(e) {
+        let tr = e.target.closest('tr');
+        if (!tr || tr.classList.contains('categoria-header-row')) return;
+
+        if (isSwiping) {
+            let deltaX = (e.changedTouches ? e.changedTouches[0].clientX : e.clientX) - swipeStartX;
+            let finalX = swipeCurrentX + deltaX;
+
+            tr.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+
+            // Se arrastou mais de 40px, mantém aberto na posição -160px, senão fecha
+            if (finalX < -40) {
+                tr.style.transform = `translateX(-160px)`;
+                swipedRow = tr;
+            } else {
+                closeSwipe(tr);
+            }
+            setTimeout(() => { justSwiped = false; }, 300);
+        } else {
+            justSwiped = false;
+        }
+    });
+
+    // Fecha swipe ao tocar fora da linha
+    document.addEventListener('touchstart', function(e) {
+        if (swipedRow && !swipedRow.contains(e.target) && e.target.id !== 'swipe-actions') {
+            closeSwipe(swipedRow);
+        }
+    }, { passive: true });
+}
+
+function closeSwipe(tr) {
+    if (tr) {
+        tr.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+        tr.style.transform = `translateX(0px)`;
+    }
+    setTimeout(() => {
+        if (swipedRow === tr) {
+            swipedRow = null;
+        }
+    }, 300);
+}
+
+// Handlers para os botões de swipe
+if (swipeDeleteBtn) {
+    swipeDeleteBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!swipedRow) return;
+        mostrarConfirmacao("Deseja realmente remover este item?", () => {
+            swipedRow.remove();
+            salvarDados();
+            atualizarDropdown();
+            mostrarToast("Removido 🗑️");
+            closeSwipe(swipedRow);
+        });
+    });
+}
+
+if (swipeAlertBtn) {
+    swipeAlertBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!swipedRow) return;
+        // Abre o modal de alerta para este item
+        let icon = swipedRow.querySelector('.alerta-icon'); // ainda temos ícone? Não, removemos. Mas podemos passar a linha diretamente
+        // Vamos criar uma função que aceita a linha
+        abrirModalAlertaParaLinha(swipedRow);
+        closeSwipe(swipedRow);
+    });
+}
+
+// Função auxiliar para abrir modal de alerta a partir da linha
+function abrirModalAlertaParaLinha(tr) {
+    itemAlertaAtual = tr;
+    let min = tr.dataset.min ? parseFloat(tr.dataset.min) : '';
+    let max = tr.dataset.max ? parseFloat(tr.dataset.max) : '';
+    document.getElementById('alerta-min').value = min !== '' ? min : '';
+    document.getElementById('alerta-max').value = max !== '' ? max : '';
+    document.getElementById('modal-alerta').style.display = 'flex';
+}
+
+// ===== FUNÇÕES DE ALERTA =====
+let itemAlertaAtual = null;
+
+function abrirModalAlerta(icon) {
+    // Versão antiga baseada em ícone - não usaremos mais, mas mantida para compatibilidade
+    let tr = icon.closest('tr');
+    if (tr) abrirModalAlertaParaLinha(tr);
+}
+
+function fecharModalAlerta() {
+    document.getElementById('modal-alerta').style.display = 'none';
+    itemAlertaAtual = null;
+}
+
+function salvarAlerta() {
+    if (!itemAlertaAtual) return;
+    let min = document.getElementById('alerta-min').value;
+    let max = document.getElementById('alerta-max').value;
+    min = min ? parseFloat(min) : null;
+    max = max ? parseFloat(max) : null;
+
+    // Atualiza dataset
+    itemAlertaAtual.dataset.min = min !== null ? min : '';
+    itemAlertaAtual.dataset.max = max !== null ? max : '';
+
+    // Salva nos dados
+    salvarDados();
+    verificarAlertas();
+    fecharModalAlerta();
+}
+
+function verificarAlertas() {
+    let dados = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    dados.forEach(item => {
+        let qtdStr = (item.q || '').replace(',', '.').replace(/[^\d.-]/g, '');
+        let qtd = parseFloat(qtdStr) || 0;
+        
+        if (item.min !== null && item.min !== undefined && qtd < item.min) {
+            mostrarToast(`⚠️ Estoque baixo: ${item.n}`);
+            document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => {
+                let nome = r.querySelector('.nome-prod').innerText.trim();
+                if (nome === item.n) {
+                    let chk = r.querySelector('input[type="checkbox"]');
+                    if (!chk.checked) {
+                        chk.checked = true;
+                        alternarCheck(chk);
+                    }
+                }
+            });
+        }
+        if (item.max !== null && item.max !== undefined && qtd > item.max) {
+            mostrarToast(`📦 Estoque excessivo: ${item.n}`);
+        }
+    });
+}
+
+// ===== FUNÇÕES PRINCIPAIS =====
+function carregarListaPadrao() { 
+    var listaCombinada = []; 
+    var ocultosSistema = JSON.parse(localStorage.getItem(storageOcultos) || "[]"); 
+    produtosPadrao.forEach(p => { 
+        var d = p.split("|"); 
+        if (!ocultosSistema.includes(d[0].toLowerCase())) { 
+            listaCombinada.push({ n: d[0], q: "", u: d[1], c: false, min: null, max: null }); 
+        } 
+    }); 
+    var favoritosUsuario = JSON.parse(localStorage.getItem(storageMeus) || "[]"); 
+    favoritosUsuario.forEach(item => { 
+        if(!listaCombinada.some(i => i.n.toLowerCase() === item.n.toLowerCase())) { 
+            listaCombinada.push({ n: item.n, q: "", u: item.u, c: false, min: null, max: null }); 
+        } 
+    }); 
+    renderizarListaCompleta(listaCombinada); 
+}
+
+function renderizarListaCompleta(dados) { 
+    containerItens.innerHTML = ""; 
+    dados.sort((a, b) => a.n.localeCompare(b.n)); 
+    let grupos = { 
+        'carnes': [], 'laticinios': [], 'hortifruti': [], 'mercearia': [], 
+        'temperos': [], 'limpeza': [], 'bebidas': [], 'embalagens': [], 'outros': [] 
+    }; 
+    dados.forEach(item => { 
+        let cat = identificarCategoria(item.n); 
+        grupos[cat].push(item); 
+    }); 
+    for (let cat in grupos) { 
+        if (grupos[cat].length > 0) { 
+            let trHeader = document.createElement("tr"); 
+            trHeader.classList.add("categoria-header-row"); 
+            trHeader.innerHTML = `<td colspan="4" class="categoria-header" style="background-color: ${coresCategorias[cat]}">${nomesCategorias[cat]}</td>`; 
+            containerItens.appendChild(trHeader); 
+            grupos[cat].forEach(item => { 
+                inserirLinhaNoDOM(item.n, item.q, item.u, item.c, item.min, item.max); 
+            }); 
+        } 
+    } 
+}
+
+function inserirLinhaNoDOM(n, q, u, chk, min, max) { 
+    var tr = document.createElement("tr"); 
+    if(chk) tr.classList.add("linha-marcada");
+    tr.dataset.min = min !== null && min !== undefined ? min : '';
+    tr.dataset.max = max !== null && max !== undefined ? max : '';
     
-    --btn-add: #3F3F46; --btn-add-text: #FFFFFF;
-    --btn-star: #855C1B; 
-    --btn-star-text: #FFFFFF;
+    tr.innerHTML = `
+        <td class="col-check"><input type="checkbox" onchange="alternarCheck(this)" ${chk ? 'checked' : ''}></td>
+        <td class="col-desc">
+            <span contenteditable="true" class="nome-prod" onblur="salvarEAtualizar()">${n}</span>
+        </td>
+        <td class="col-qtd"><input type="text" class="input-qtd-tabela" value="${q}" onclick="abrirCalculadora(this)" readonly></td>
+        <td class="col-unid">
+            <div>
+                <select class="select-tabela" onchange="salvarDados()">
+                    <option value="kg" ${u==='kg'?'selected':''}>kg</option>
+                    <option value="g" ${u==='g'?'selected':''}>g</option>
+                    <option value="uni" ${u==='uni'?'selected':''}>uni</option>
+                    <option value="pct" ${u==='pct'?'selected':''}>pct</option>
+                    <option value="cx" ${u==='cx'?'selected':''}>cx</option>
+                    <option value="bld" ${u==='bld'?'selected':''}>bld</option>
+                    <option value="crt" ${u==='crt'?'selected':''}>crt</option>
+                </select>
+            </div>
+        </td>
+    `;
+    containerItens.appendChild(tr); 
+}
+
+function salvarDados() { 
+    var dados = []; 
+    document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => { 
+        var c = r.querySelectorAll("td"); 
+        if (c.length > 0) { 
+            let nome = c[1].querySelector('.nome-prod').innerText.replace(/(\r\n|\n|\r)/gm, " ").trim(); 
+            let qtd = c[2].querySelector("input").value.trim(); 
+            let unid = c[3].querySelector("select").value; 
+            let chk = c[0].querySelector("input[type='checkbox']").checked; 
+            let min = r.dataset.min ? parseFloat(r.dataset.min) : null; 
+            let max = r.dataset.max ? parseFloat(r.dataset.max) : null; 
+            dados.push({ n: nome, q: qtd, u: unid, c: chk, min: min, max: max }); 
+        } 
+    }); 
+    localStorage.setItem(storageKey, JSON.stringify(dados)); 
+    var s = document.getElementById("status-save"); 
+    s.style.opacity = "1"; 
+    setTimeout(() => s.style.opacity = "0", 1500); 
+    atualizarPainelCompras(); 
+    verificarAlertas();
+}
+
+function salvarEAtualizar() { 
+    salvarDados(); 
+    var dados = JSON.parse(localStorage.getItem(storageKey)); 
+    renderizarListaCompleta(dados); 
+    atualizarDropdown(); 
+}
+
+function alternarTodos(masterBox) { 
+    darFeedback(); 
+    let isChecked = masterBox.checked; 
+    document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => { 
+        if (r.style.display !== "none") { 
+            let box = r.querySelector("input[type='checkbox']"); 
+            box.checked = isChecked; 
+            if (isChecked) { 
+                r.classList.add("linha-marcada"); 
+            } else { 
+                r.classList.remove("linha-marcada"); 
+            } 
+        } 
+    }); 
+    salvarDados(); 
+}
+
+function alternarCheck(box) { 
+    darFeedback(); 
+    var linha = box.parentElement.parentElement; 
+    if(box.checked) { 
+        linha.classList.add("linha-marcada"); 
+    } else { 
+        linha.classList.remove("linha-marcada"); 
+        document.getElementById('check-todos').checked = false; 
+    } 
+    salvarDados(); 
+}
+
+function atualizarPainelCompras() { 
+    ulCompras.innerHTML = ""; 
+    var temItens = false; 
+    document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => { 
+        var checkbox = r.querySelector("input[type='checkbox']"); 
+        if (checkbox && checkbox.checked) { 
+            temItens = true; 
+            var li = document.createElement("li"); 
+            li.innerText = r.querySelector(".nome-prod").innerText.replace(/(\r\n|\n|\r)/gm, " ").trim(); 
+            ulCompras.appendChild(li); 
+        } 
+    }); 
+    areaCompras.style.display = temItens ? "block" : "none"; 
+}
+
+function gerarTextoEstoque() {
+    let t = "*ESTOQUE " + obterDataAtual() + "*\n\n";
+    let itens = [];
+    document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => {
+        let cols = r.querySelectorAll("td");
+        let nome = cols[1].querySelector('.nome-prod').innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
+        let qTxt = cols[2].querySelector("input").value.trim();
+        let unidade = cols[3].querySelector("select").options[cols[3].querySelector("select").selectedIndex].text;
+        if(qTxt !== "") { itens.push(`${nome}: ${qTxt} ${unidade}`); } 
+        else { itens.push(`${nome}:   ${unidade}`); }
+    });
+    itens.sort();
+    itens.forEach(i => t += `${i}\n`);
+    return t;
+}
+
+function gerarTextoCompras() {
+    let t = "*LISTA DE COMPRAS " + obterDataAmanha() + "*\n\n";
+    let itens = [];
+    document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => {
+        var check = r.querySelector("input[type='checkbox']");
+        if (check && check.checked) {
+            itens.push(r.querySelector(".nome-prod").innerText.replace(/(\r\n|\n|\r)/gm, " ").trim());
+        }
+    });
+    itens.sort();
+    itens.forEach(i => t += `${i}\n`);
+    return t;
+}
+
+function copiarCompras() { copiarParaClipboard(gerarTextoCompras()); } 
+function compartilharComprasZap() { window.open("https://wa.me/?text=" + encodeURIComponent(gerarTextoCompras()), '_blank'); }
+function copiarEstoque() { copiarParaClipboard(gerarTextoEstoque()); } 
+function compartilharEstoque() { window.open("https://wa.me/?text=" + encodeURIComponent(gerarTextoEstoque()), '_blank'); }
+
+function copiarParaClipboard(texto) { darFeedback(); if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(texto).then(() => mostrarToast("Copiado com sucesso! ✅")).catch(() => copiarFallback(texto)); } else { copiarFallback(texto); } }
+function copiarFallback(texto) { var textArea = document.createElement("textarea"); textArea.value = texto; textArea.style.position = "fixed"; textArea.style.left = "-9999px"; document.body.appendChild(textArea); textArea.focus(); textArea.select(); try { document.execCommand('copy'); mostrarToast("Copiado com sucesso! ✅"); } catch (err) { mostrarAlertaElegante("Erro ao copiar."); } document.body.removeChild(textArea); }
+
+function adicionarManual(salvarNoPadrao) { 
+    var p = document.getElementById("novoProduto").value.trim(); 
+    var q = document.getElementById("novoQtd").value.trim(); 
+    var u = document.getElementById("novoUnidade").value; 
     
-    --btn-red: #7F1D1D;    
-    --btn-green: #166534;  
-    --btn-blue: #1E40AF;   
-    --btn-purple: #5B21B6; 
-    --btn-danger: #993333; 
-    --btn-alert: #ff9800;   /* NOVO: laranja para botão de alerta */
-
-    --unified-cat-header: #2D3748;
-
-    --cat-carnes: var(--unified-cat-header);
-    --cat-laticinios: var(--unified-cat-header);
-    --cat-horti: var(--unified-cat-header);
-    --cat-limpeza: var(--unified-cat-header);
-    --cat-mercearia: var(--unified-cat-header);
-    --cat-padaria: var(--unified-cat-header);
-    --cat-bebidas: var(--unified-cat-header);
-    --cat-temperos: var(--unified-cat-header);
-    --cat-outros: var(--unified-cat-header);
-}
-
-body.light-mode {
-    --bg: #F3F4F6; --card: #FFFFFF; --text: #1F2937; --border: #E5E7EB;
-    --accent: #6B7280; --highlight: #F9FAFB; --edit-bg: #FFFFFF;
-    --shop-bg: #F1F5F9; --borda-caixas: #D1D5DB;
+    if (!p) { mostrarToast("⚠️ Digite o nome do produto!"); return; } 
+    darFeedback(); 
     
-    --btn-add: #E5E7EB; --btn-add-text: #1F2937;
-    --btn-star: #B47E19; 
-    --btn-red: #991B1B;    --btn-green: #065F46;  
-    --btn-blue: #1E40AF;   --btn-purple: #5B21B6; 
-    --btn-danger: #B91C1C; 
-    --btn-alert: #f57c00;  /* laranja mais escuro para modo claro */
+    salvarDados();
+    
+    var dados = JSON.parse(localStorage.getItem(storageKey) || "[]"); 
+    
+    if (dados.some(item => item.n.toLowerCase() === p.toLowerCase())) {
+        mostrarToast("⚠️ O item já existe na lista!");
+        return;
+    }
 
-    --unified-cat-header: #475569; 
+    dados.push({ n: p, q: q, u: u, c: false, min: null, max: null }); 
+    renderizarListaCompleta(dados); 
+    salvarDados(); 
+    
+    if(salvarNoPadrao) { 
+        var favoritosUsuario = JSON.parse(localStorage.getItem(storageMeus) || "[]"); 
+        if(!favoritosUsuario.some(item => item.n.toLowerCase() === p.toLowerCase())) { 
+            favoritosUsuario.push({ n: p, u: u }); 
+            localStorage.setItem(storageMeus, JSON.stringify(favoritosUsuario)); 
+            mostrarToast("Item FIXADO! ⭐"); 
+        } 
+    } 
+    document.getElementById("novoProduto").value = ""; 
+    document.getElementById("novoQtd").value = ""; 
 }
 
-/* === BLOQUEIO DE SELEÇÃO E CÓPIA === */
-body {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+function removerDoPadrao() { 
+    var p = document.getElementById("novoProduto").value.trim(); 
+    if (!p) { mostrarToast("⚠️ Digite o nome para remover!"); return; } 
+    darFeedback(); 
+    var favoritosUsuario = JSON.parse(localStorage.getItem(storageMeus) || "[]"); 
+    var novaListaFavoritos = favoritosUsuario.filter(item => item.n.toLowerCase() !== p.toLowerCase()); 
+    localStorage.setItem(storageMeus, JSON.stringify(novaListaFavoritos)); 
+    var ocultosSistema = JSON.parse(localStorage.getItem(storageOcultos) || "[]"); 
+    if (!ocultosSistema.includes(p.toLowerCase())) { 
+        ocultosSistema.push(p.toLowerCase()); 
+        localStorage.setItem(storageOcultos, JSON.stringify(ocultosSistema)); 
+    } 
+    document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => { 
+        var nomeTabela = r.querySelector(".nome-prod").innerText.toLowerCase(); 
+        if(nomeTabela === p.toLowerCase()) { 
+            r.remove(); 
+        } 
+    }); 
+    salvarDados(); 
+    atualizarDropdown(); 
+    document.getElementById("novoProduto").value = ""; 
+    document.getElementById("novoQtd").value = ""; 
 }
 
-input, textarea {
-  -webkit-user-select: text;
-  -moz-user-select: text;
-  -ms-user-select: text;
-  user-select: text;
+function filtrarGeral() { 
+    var tBusca = buscaInput.value.toLowerCase(); 
+    var tSelect = selectFiltro.value.toLowerCase(); 
+    document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => { 
+        var nome = r.querySelector(".nome-prod").innerText.toLowerCase(); 
+        if (nome.includes(tBusca) && (tSelect === "" || nome === tSelect)) { 
+            r.style.display = ""; 
+        } else { 
+            r.style.display = "none"; 
+        } 
+    }); 
+    let headers = document.querySelectorAll(".categoria-header-row"); 
+    headers.forEach(header => { 
+        let proximoElem = header.nextElementSibling; 
+        let temItemVisivel = false; 
+        while(proximoElem && !proximoElem.classList.contains("categoria-header-row")) { 
+            if (proximoElem.style.display !== "none") { 
+                temItemVisivel = true; 
+                break; 
+            } 
+            proximoElem = proximoElem.nextElementSibling; 
+        } 
+        header.style.display = temItemVisivel ? "" : "none"; 
+    }); 
 }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-body { 
-    font-family: 'Inter', sans-serif; font-weight: 600; max-width: 100%; 
-    margin: 0; padding: 10px; background-color: var(--bg); color: var(--text); 
-    padding-bottom: 80px; transition: background-color 0.3s, color 0.3s; 
+function atualizarDropdown() { 
+    var v = selectFiltro.value; 
+    selectFiltro.innerHTML = '<option value="">📂 ITENS</option>'; 
+    var nomes = []; 
+    document.querySelectorAll(".nome-prod").forEach(td => nomes.push(td.innerText.replace(/(\r\n|\n|\r)/gm, " ").trim())); 
+    nomes.sort().forEach(n => { 
+        var o = document.createElement("option"); 
+        o.value = n; 
+        o.text = n; 
+        selectFiltro.add(o); 
+    }); 
+    selectFiltro.value = v; 
 }
 
-body::before {
-    content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background-image: url('fundo-pizza.jpg'); background-size: cover; background-position: center;
-    opacity: 0.3;
-    z-index: -1; pointer-events: none;
+function resetarTudo() { 
+    mostrarConfirmacao("ATENÇÃO: Restaurar lista de fábrica?", () => { 
+        localStorage.removeItem(storageKey); 
+        localStorage.removeItem(storageOcultos); 
+        location.reload(); 
+    }); 
 }
 
-.header-container { 
-    display: flex; justify-content: center; align-items: center; position: relative; 
-    margin: 10px 0 15px 0;
-    background-color: var(--card); 
-    padding: 12px 20px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
-}
-h1 { color: #FFFFFF; margin: 0; font-weight: 800; font-size: 16px; text-transform: uppercase; transition: color 0.3s; }
-body.light-mode h1 span.titulo-estoque { color: #374151 !important; }
-.btn-theme { position: absolute; right: 10px; background: none; border: none; font-size: 22px; cursor: pointer; padding: 5px; outline: none; color: var(--accent); }
-
-.card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: all 0.3s; }
-label { font-size: 10px; margin-bottom: 6px; display: block; color: var(--accent); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
-
-input[type="text"], select { padding: 10px 12px; background-color: var(--highlight); border: 1px solid var(--borda-caixas); border-radius: 8px; font-weight: 600; color: var(--text); font-size: 16px; width: 100%; outline: none; transition: border 0.3s, background-color 0.3s, color 0.3s; }
-input[type="text"]:focus, select:focus { border: 1px solid var(--accent); box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2); }
-input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; margin: 0; accent-color: var(--btn-danger); border: 2px solid var(--border); border-radius: 4px; }
-
-select {
-    text-align: center; text-align-last: center; -webkit-appearance: none; appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7280' opacity='0.6'%3E%3Cpath d='M7 15l5 5 5-5H7zM7 9l5-5 5 5H7z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 4px center; background-size: 14px;
+function iniciarNovoDia() { 
+    mostrarConfirmacao("ZERAR QUANTIDADES?", () => { 
+        var dados = JSON.parse(localStorage.getItem(storageKey) || "[]"); 
+        dados.forEach(item => { 
+            item.q = ""; 
+            item.c = false; 
+        }); 
+        localStorage.setItem(storageKey, JSON.stringify(dados)); 
+        location.reload(); 
+    }, 'sucesso'); 
 }
 
-button { 
-    border: none; border-radius: 10px; cursor: pointer; font-weight: 700; text-transform: uppercase; 
-    transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s, background-color 0.3s, color 0.3s; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2); 
-    letter-spacing: 0.5px;
-}
-button:active, .btn-nav:active, input[type="checkbox"]:active, .btn-theme:active { 
-    transform: scale(0.96); box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-}
-
-/* ===== LUPA (ASSISTIVE TOUCH) ===== */
-#assistive-touch {
-    position: fixed;
-    width: 70px;
-    height: 70px;
-    background-color: rgba(40, 40, 40, 0.98); 
-    border-radius: 50%; 
-    display: flex; align-items: center; justify-content: center;
-    border: 2px solid white;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
-    z-index: 200; 
-    opacity: 0.9; 
-    transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
-    cursor: pointer; 
-    color: #E0E0E0;
-    touch-action: none;
+function salvarListaNoCelular() { 
+    var dados = localStorage.getItem(storageKey); 
+    if (!dados || dados === "[]") return; 
+    darFeedback(); 
+    var blob = new Blob([dados], { type: "application/json" }); 
+    var url = URL.createObjectURL(blob); 
+    var a = document.createElement("a"); 
+    a.href = url; 
+    a.download = "ESTOQUE_CATEGORIAS.json"; 
+    a.click(); 
 }
 
-body.light-mode #assistive-touch { 
-    background-color: rgba(255, 255, 255, 0.98); 
-    color: #333; 
-    border: 2px solid #333;
+function carregarListaDoCelular(event) { 
+    var f = event.target.files[0]; 
+    var r = new FileReader(); 
+    r.onload = function(e) { 
+        let dados = JSON.parse(e.target.result);
+        dados = dados.map(item => ({
+            ...item,
+            min: item.min !== undefined ? item.min : null,
+            max: item.max !== undefined ? item.max : null
+        }));
+        localStorage.setItem(storageKey, JSON.stringify(dados)); 
+        location.reload(); 
+    }; 
+    r.readAsText(f); 
 }
 
-#assistive-touch:active { 
-    opacity: 1; 
-    transform: scale(0.96);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.7); 
+function autoPreencherUnidade() { 
+    var inputNome = document.getElementById("novoProduto").value.toLowerCase().trim(); 
+    var match = produtosPadrao.find(p => p.split("|")[0].toLowerCase().startsWith(inputNome)); 
+    if (match) { 
+        document.getElementById("novoUnidade").value = match.split("|")[1]; 
+    } 
 }
 
-#assistive-touch svg { 
-    width: 32px;
-    height: 32px;
-    stroke-width: 2.5; 
+// Inicialização
+function iniciarApp() { 
+    if(localStorage.getItem('temaEstoque') === 'claro') { document.body.classList.add('light-mode'); } 
+    atualizarTitulos(); 
+    carregarPosicaoLupa(); 
+    var salvos = localStorage.getItem(storageKey); 
+    if (salvos && JSON.parse(salvos).length > 0) { 
+        renderizarListaCompleta(JSON.parse(salvos)); 
+    } else { 
+        carregarListaPadrao(); 
+    } 
+    atualizarDropdown(); 
+    atualizarPainelCompras(); 
+    initSwipe(); 
+    verificarAlertas();
 }
 
-#search-overlay {
-    position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-    width: 94%; max-width: 400px; background: rgba(30, 30, 30, 0.98); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--border); border-radius: 16px; padding: 15px;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.5); z-index: 9999; display: none;
-    animation: slideDown 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-body.light-mode #search-overlay { background: rgba(255, 255, 255, 0.98); }
-@keyframes slideDown { from { transform: translate(-50%, -30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-
-.search-inner { display: flex; gap: 8px; align-items: center; }
-.input-group { display: grid; grid-template-columns: 1.5fr 0.7fr 0.8fr; gap: 8px; align-items: end; }
-.action-group { grid-column: span 3; display: flex; gap: 10px; margin-top: 10px; }
-.btn-half { flex: 1; padding: 14px 6px; font-size: 11px; border-radius: 10px; letter-spacing: 0.5px; } 
-
-#add-btn { background-color: var(--btn-add); color: var(--btn-add-text); border: 1px solid var(--border); }
-#add-star-btn { background-color: var(--btn-star); color: var(--btn-star-text); }
-#remove-star-btn { background-color: var(--btn-danger); color: white; } 
-
-#btn-toggle-lista { 
-    background: var(--card); border: 1px solid var(--border); color: var(--text); 
-    padding: 12px; font-size: 12px; border-radius: 10px; margin-bottom: 12px; width: 100%; transition: all 0.3s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.btn-limpar { 
-    position: absolute; right: 8px; bottom: 10px; color: var(--btn-danger); 
-    font-size: 16px; font-weight: 800; padding: 4px; cursor: pointer; 
-    transition: transform 0.15s; opacity: 0.7;
-}
-.btn-limpar:active { transform: scale(0.8); opacity: 1; }
-
-.btn-mic {
-    position: absolute; right: 36px; bottom: 8px;
-    background: none; border: none; color: var(--accent); box-shadow: none;
-    cursor: pointer; padding: 4px; transition: all 0.2s;
-    display: flex; align-items: center; justify-content: center;
-}
-.btn-mic:active { transform: scale(0.9); box-shadow: none; color: var(--text); }
-.btn-mic svg { width: 20px; height: 20px; stroke-width: 2; }
-.btn-mic.ouvindo { color: var(--btn-danger); animation: pulseMic 1.5s infinite; }
-@keyframes pulseMic { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
-
-.table-wrapper { position: relative; overflow-x: hidden; border-radius: 12px; border: 1px solid var(--border); background: var(--card); margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-
-/* Botões de swipe */
-#swipe-actions {
-    position: absolute;
-    right: 0;
-    top: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: row-reverse; /* último filho à esquerda, primeiro à direita */
-    z-index: 1;
-    pointer-events: none; /* inicialmente não clicáveis */
-}
-.swipe-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 80px;
-    height: 100%;
-    color: white;
-    font-weight: bold;
-    font-size: 14px;
-    cursor: pointer;
-    pointer-events: auto; /* tornam-se clicáveis quando a linha está aberta */
-    transition: background-color 0.2s;
-    border-left: 1px solid rgba(0,0,0,0.1);
-}
-.swipe-delete {
-    background-color: var(--btn-danger);
-}
-.swipe-alert {
-    background-color: var(--btn-alert);
-}
-.swipe-btn:active {
-    filter: brightness(0.9);
-}
-
-table { width: 100%; border-collapse: collapse; table-layout: fixed; touch-action: pan-y; }
-th { background-color: var(--highlight); color: var(--accent); text-align: left; padding: 12px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; border-bottom: 1px solid var(--border); }
-td { border-bottom: 1px solid var(--border); padding: 12px 8px; font-size: 14px; vertical-align: middle; word-wrap: break-word; overflow-wrap: break-word; background-color: var(--card); color: var(--text); }
-tr { position: relative; z-index: 2; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
-
-.categoria-header { 
-    font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 10px; letter-spacing: 1px; 
-    color: #E0E0E0; 
-    background-color: var(--unified-cat-header) !important; 
-    text-shadow: none; box-shadow: none; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-}
-
-.col-check { width: 40px; text-align: center; } .col-desc { width: auto; } 
-.col-qtd { width: 90px; text-align: center; } .col-unid { width: 75px; }
-
-.nome-prod { line-height: 1.3; display: inline-block; outline: none; border: 1px solid transparent; border-radius: 6px; padding: 4px; width: 100%; }
-.nome-prod:focus { border: 1px solid var(--accent); background: var(--edit-bg); }
-.linha-marcada .nome-prod { color: var(--accent); text-decoration: line-through; opacity: 0.7; }
-
-/* Removido ícone de sino da coluna de unidade */
-.col-unid div {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.col-unid select {
-    flex: 1;
-    min-width: 0;
-}
-
-.input-qtd-tabela { background-color: var(--edit-bg); color: #E0E0E0; text-align: center; border-radius: 8px; width: 100%; border: 1px solid var(--borda-caixas); padding: 8px 4px; font-size: 16px; font-weight: 600; outline: none; transition: all 0.3s; cursor: pointer; }
-.input-qtd-tabela:focus { border: 1px solid var(--accent); box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2); }
-body.light-mode .input-qtd-tabela { color: #1F2937; } 
-
-.select-tabela { text-align: center; text-align-last: center; background: var(--edit-bg); border: 1px solid var(--borda-caixas); border-radius: 8px; color: var(--text); font-weight: 600; width: 100%; font-size: 15px; padding: 8px 4px; outline: none; transition: all 0.3s; }
-.select-tabela:focus { border: 1px solid var(--accent); }
-
-.share-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
-.btn-zap { background-color: var(--card); color: var(--text); border: 1px solid var(--border); padding: 15px; font-size: 12px; border-radius: 10px; letter-spacing: 0.5px; }
-
-#area-compras { margin-top: 30px; background-color: var(--shop-bg); border: 1px solid var(--border); padding: 20px; border-radius: 12px; display: none; transition: all 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-body.light-mode #area-compras { border: 1px solid #E5E7EB; }
-#titulo-compras { margin: 0 0 15px 0; font-size: 13px; color: var(--btn-danger); font-weight: 800; text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 8px; letter-spacing: 1px; }
-body.light-mode #titulo-compras { border-bottom: 1px solid #E5E7EB; }
-#lista-compras-visual { list-style: none; padding: 0; margin: 0 0 15px 0; }
-#lista-compras-visual li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--text); display: flex; align-items: center; }
-#lista-compras-visual li::before { content: "•"; color: var(--btn-danger); margin-right: 8px; font-size: 18px; line-height: 1; }
-
-.btn-compra { background-color: var(--btn-danger); color: white; border: none; padding: 15px; font-size: 12px; border-radius: 10px; letter-spacing: 0.5px; }
-#btn-novo-dia { background-color: var(--btn-green); color: white; border: none; width: 100%; margin-top: 30px; padding: 16px; font-size: 13px; letter-spacing: 1px; border-radius: 12px; }
-#btn-exportar { background-color: var(--btn-blue); color: white; border: none; width: 100%; margin-top: 15px; padding: 16px; font-size: 12px; letter-spacing: 0.5px; border-radius: 10px; }
-#btn-importar { background-color: var(--btn-purple); color: white; border: none; width: 100%; margin-top: 15px; padding: 16px; font-size: 12px; letter-spacing: 0.5px; border-radius: 10px; }
-
-/* FIX VISIBILIDADE: Botão Restaurar Lista agora é preto e vermelho vibrante */
-#btn-reset { 
-    background-color: #000000 !important; 
-    color: var(--btn-danger) !important; 
-    border: 2px solid var(--btn-danger) !important; 
-    width: 100%; 
-    margin-top: 30px; 
-    font-size: 11px; 
-    padding: 15px; 
-    border-radius: 12px;
-    letter-spacing: 1px;
-    opacity: 1 !important;
-    font-weight: 800;
-    transition: all 0.3s;
-}
-#btn-reset:hover { background-color: var(--btn-danger) !important; color: white !important; }
-
-.nav-float { position: fixed; right: 15px; bottom: 15px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
-.btn-nav { width: 45px; height: 45px; border-radius: 50%; background-color: var(--card); color: var(--accent); border: 1px solid var(--border); font-size: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); padding: 0;}
-#status-save { text-align: right; font-size: 10px; font-weight: bold; color: var(--accent); margin-top: 8px; opacity: 0; transition: opacity 0.3s; }
-
-#toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; width: 90%; max-width: 400px; }
-.toast { background: rgba(40, 40, 40, 0.95); backdrop-filter: blur(8px); color: #E0E0E0; padding: 16px 24px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 14px; font-weight: 600; border: 1px solid var(--border); opacity: 0; animation: fadeToast 0.3s forwards; text-align: center; }
-body.light-mode .toast { background: rgba(255, 255, 255, 0.95); color: #333; }
-@keyframes fadeToast { to { opacity: 1; transform: translateY(-15px); } }
-
-.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); padding: 20px; }
-.modal-box { background: var(--card); padding: 35px 25px; border-radius: 16px; width: 100%; max-width: 360px; text-align: center; border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
-#modal-text { font-size: 17px; margin-bottom: 35px; line-height: 1.5; color: var(--text); white-space: pre-wrap; font-weight: 700; }
-.modal-buttons { display: flex; gap: 15px; }
-.modal-buttons button { flex: 1; padding: 16px; font-size: 14px; border-radius: 12px; }
-#modal-btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--accent); box-shadow: none; }
-#modal-btn-confirm { background-color: var(--btn-danger); color: white; border: none; }
-
-.calc-box { background: var(--card); padding: 25px; border-radius: 20px; width: 100%; max-width: 360px; border: 1px solid var(--border); box-shadow: 0 25px 60px rgba(0,0,0,0.7); display: flex; flex-direction: column; gap: 18px; margin-bottom: 5vh; }
-.calc-header { display: flex; justify-content: space-between; align-items: center; color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-#calc-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 85%; color: var(--text); }
-.calc-close { background: transparent; border: none; color: var(--accent); font-size: 24px; padding: 5px; box-shadow: none; }
-.calc-close:active { transform: scale(0.8); box-shadow: none; color: var(--btn-danger); }
-#calc-display { background: var(--edit-bg); color: #E0E0E0; font-size: 36px; text-align: right; padding: 20px; border-radius: 12px; border: 1px solid var(--borda-caixas); min-height: 75px; overflow-x: auto; white-space: nowrap; font-family: monospace; box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
-body.light-mode #calc-display { color: #333; box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); }
-.calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-.calc-btn { background: var(--highlight); color: var(--text); border: 1px solid var(--border); border-radius: 14px; font-size: 24px; padding: 20px 0; font-weight: 600; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-.calc-bg-op { background: var(--card); color: var(--accent); font-size: 26px; border-color: var(--border); }
-.calc-bg-confirm { background: var(--btn-green); color: white; border: none; font-size: 24px; }
+iniciarApp();
