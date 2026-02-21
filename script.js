@@ -1,4 +1,4 @@
-// v5.2.2 - Swipe com dois botões: Apagar e Alerta (sino)
+// v5.2.3 - Swipe com dois botões, alertas corrigidos, unidade no modal
 let audioCtx = null;
 let inputCalculadoraAtual = null;
 let expressaoCalc = "";
@@ -274,14 +274,13 @@ function initSwipe() {
         if (!tr || tr.classList.contains('categoria-header-row')) return;
         if (e.target.tagName === 'INPUT' && e.target.type === 'checkbox') return;
 
-        // Fecha qualquer outra linha aberta
         if (swipedRow && swipedRow !== tr) closeSwipe(swipedRow);
 
         swipeStartX = getClientX(e);
         swipeStartY = getClientY(e);
         isSwiping = false;
         justSwiped = false;
-        swipeCurrentX = (swipedRow === tr) ? -160 : 0; // largura total dos botões (80+80)
+        swipeCurrentX = (swipedRow === tr) ? -160 : 0;
         tr.style.transition = 'none';
     }, { passive: true });
 
@@ -301,10 +300,9 @@ function initSwipe() {
             if (document.activeElement) document.activeElement.blur();
             justSwiped = true;
 
-            // Move a linha
             let moveX = swipeCurrentX + deltaX;
             if (moveX > 0) moveX = 0;
-            if (moveX < -160) moveX = -160; // limite de dois botões
+            if (moveX < -160) moveX = -160;
             tr.style.transform = `translateX(${moveX}px)`;
         }
     }, { passive: false });
@@ -319,7 +317,6 @@ function initSwipe() {
 
             tr.style.transition = 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
 
-            // Se arrastou mais de 40px, mantém aberto na posição -160px, senão fecha
             if (finalX < -40) {
                 tr.style.transform = `translateX(-160px)`;
                 swipedRow = tr;
@@ -332,7 +329,6 @@ function initSwipe() {
         }
     });
 
-    // Fecha swipe ao tocar fora da linha
     document.addEventListener('touchstart', function(e) {
         if (swipedRow && !swipedRow.contains(e.target) && e.target.id !== 'swipe-actions') {
             closeSwipe(swipedRow);
@@ -352,7 +348,7 @@ function closeSwipe(tr) {
     }, 300);
 }
 
-// Handlers para os botões de swipe
+// Handlers dos botões de swipe
 if (swipeDeleteBtn) {
     swipeDeleteBtn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -371,29 +367,32 @@ if (swipeAlertBtn) {
     swipeAlertBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         if (!swipedRow) return;
-        // Abre o modal de alerta para este item
-        let icon = swipedRow.querySelector('.alerta-icon'); // ainda temos ícone? Não, removemos. Mas podemos passar a linha diretamente
-        // Vamos criar uma função que aceita a linha
         abrirModalAlertaParaLinha(swipedRow);
         closeSwipe(swipedRow);
     });
 }
 
-// Função auxiliar para abrir modal de alerta a partir da linha
+// ===== FUNÇÕES DE ALERTA =====
+let itemAlertaAtual = null;
+
 function abrirModalAlertaParaLinha(tr) {
     itemAlertaAtual = tr;
     let min = tr.dataset.min ? parseFloat(tr.dataset.min) : '';
     let max = tr.dataset.max ? parseFloat(tr.dataset.max) : '';
     document.getElementById('alerta-min').value = min !== '' ? min : '';
     document.getElementById('alerta-max').value = max !== '' ? max : '';
+
+    // Obter a unidade do produto
+    let unidadeSelect = tr.querySelector('.select-tabela');
+    let unidade = unidadeSelect ? unidadeSelect.value : 'kg';
+    document.getElementById('unidade-min').innerText = unidade;
+    document.getElementById('unidade-max').innerText = unidade;
+
     document.getElementById('modal-alerta').style.display = 'flex';
 }
 
-// ===== FUNÇÕES DE ALERTA =====
-let itemAlertaAtual = null;
-
 function abrirModalAlerta(icon) {
-    // Versão antiga baseada em ícone - não usaremos mais, mas mantida para compatibilidade
+    // Mantido para compatibilidade, mas não será usado
     let tr = icon.closest('tr');
     if (tr) abrirModalAlertaParaLinha(tr);
 }
@@ -410,11 +409,9 @@ function salvarAlerta() {
     min = min ? parseFloat(min) : null;
     max = max ? parseFloat(max) : null;
 
-    // Atualiza dataset
     itemAlertaAtual.dataset.min = min !== null ? min : '';
     itemAlertaAtual.dataset.max = max !== null ? max : '';
 
-    // Salva nos dados
     salvarDados();
     verificarAlertas();
     fecharModalAlerta();
@@ -423,11 +420,13 @@ function salvarAlerta() {
 function verificarAlertas() {
     let dados = JSON.parse(localStorage.getItem(storageKey) || "[]");
     dados.forEach(item => {
+        // Conversão robusta da quantidade
         let qtdStr = (item.q || '').replace(',', '.').replace(/[^\d.-]/g, '');
         let qtd = parseFloat(qtdStr) || 0;
         
-        if (item.min !== null && item.min !== undefined && qtd < item.min) {
+        if (item.min !== null && item.min !== undefined && qtd < item.min && qtd > 0) {
             mostrarToast(`⚠️ Estoque baixo: ${item.n}`);
+            // Marca o checkbox automaticamente
             document.querySelectorAll("#lista-itens-container tr:not(.categoria-header-row)").forEach(r => {
                 let nome = r.querySelector('.nome-prod').innerText.trim();
                 if (nome === item.n) {
